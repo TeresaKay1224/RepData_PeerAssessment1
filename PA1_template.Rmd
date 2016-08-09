@@ -5,21 +5,96 @@ output:
     keep_md: true
 ---
 
+```{r setoptions, echo = TRUE}
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(mice)
+opts_chunk$set(echo = TRUE)
+```
 
 ## Loading and preprocessing the data
+```{r loadAndClean}
+#download.file('https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip', destfile = 'activity.csv')
+
+activity<- read.csv('activity.csv', header = TRUE)
+activity <- activity[!is.na(activity$steps),]
+activity$date <- as.Date(activity$date)
+activity$steps <- as.numeric(as.character(activity$steps))
+```
+
+The variables included in this dataset are:
+
+**steps**: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+
+**date**: The date on which the measurement was taken in YYYY-MM-DD format
+
+**interval**: Identifier for the 5-minute interval in which measurement was taken
 
 
+```{r headAndTail}
+head(activity)
+tail(activity)
+```
 
 ## What is mean total number of steps taken per day?
+```{r plotDailySteps}
+date_steps <- activity %>% group_by(date) %>% summarise(total_steps = sum(steps))
 
+ggplot(date_steps) + geom_histogram(aes(x = date, weight = total_steps), binwidth = 1) + xlab("Date") + ylab("Steps") + ggtitle("Total Steps per Day")
+```
 
+## What is mean total number of steps taken per day?
+```{r statsByDate}
+date_stats <- activity %>% group_by(date) %>% summarise(total_steps = sum(steps), mean = mean(steps), median = median(steps))
+print(date_stats, n = 53)
+```
 
 ## What is the average daily activity pattern?
+```{r plotTimeSeries}
+ggplot(date_stats, aes(x = date, y = total_steps)) + geom_line() + xlab("Date") + ylab("Steps") + ggtitle("Time Series of Average Steps Taken")
+```
 
+#Time Interval with Maximum Number of Steps (on average)
+```{r maxAverageStepsInterval}
+interval_stats <- activity %>% group_by(interval) %>% summarise(total_steps = sum(steps), mean = mean(steps), median = median(steps))
 
+max_avg_steps_in_interval <- max(interval_stats$total_steps)
+
+max_interval <- interval_stats[interval_stats$total_steps == max_avg_steps_in_interval,]
+```
+##The interval with the maximum number of average steps is `r max_interval$interval`.
+
+===============================================================
 
 ## Imputing missing values
+```{r readDataAndLookForMissing}
+activity<- read.csv('activity.csv', header = TRUE)
+activity$steps <- as.numeric(as.character(activity$steps))
+md.pattern(activity)
+```
 
+##Use **mice** package to impute data
+```{r impute, cache = TRUE, echo = FALSE}
+impute_activity <- mice(data = activity, me = 5, method = "pmm", maxit = 50, seed = 500)
 
+activity_imputed <- complete(impute_activity, 1)
+```
+
+#Total Number of Steps Taken Each Day After Imputing
+```{r plotDailyStepsAfterImpute}
+activity_imputed$date <- as.Date(activity_imputed$date)
+
+ggplot(activity_imputed, aes(x = date, y = steps)) + stat_summary(fun.y = sum, geom = "bar") +  xlab("Date") + ylab("Steps") + ggtitle("Total Steps per Day")
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r weekend}
+activity_wkdy <- activity_imputed %>% mutate(wkday = weekdays(activity_imputed$date))
+
+activity_wkdy <- activity_wkdy %>% mutate(wkday_type = ifelse(wkday %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), "weekday", "weekend"))
+
+interval_stats <- activity_wkdy %>% group_by(interval, wkday_type) %>% summarise(total_steps = sum(steps), mean = mean(steps), median = median(steps))
+
+ggplot(interval_stats, aes(interval, total_steps)) + geom_line() + facet_grid(.~wkday_type) + ggtitle("Average Steps by Interval (Weekend vs. Weekdays)") + xlab("Interval") + ylab("Steps")
+```
