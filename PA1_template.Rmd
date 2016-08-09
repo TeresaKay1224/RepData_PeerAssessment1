@@ -5,7 +5,7 @@ output:
     keep_md: true
 ---
 
-```{r setoptions, echo = TRUE}
+```{r setoptions, results = "hide"}
 library(knitr)
 library(ggplot2)
 library(dplyr)
@@ -23,19 +23,6 @@ activity$date <- as.Date(activity$date)
 activity$steps <- as.numeric(as.character(activity$steps))
 ```
 
-The variables included in this dataset are:
-
-**steps**: Number of steps taking in a 5-minute interval (missing values are coded as NA)
-
-**date**: The date on which the measurement was taken in YYYY-MM-DD format
-
-**interval**: Identifier for the 5-minute interval in which measurement was taken
-
-
-```{r headAndTail}
-head(activity)
-tail(activity)
-```
 
 ## What is mean total number of steps taken per day?
 ```{r plotDailySteps}
@@ -75,7 +62,7 @@ md.pattern(activity)
 ```
 
 ##Use **mice** package to impute data
-```{r impute, cache = TRUE, echo = FALSE}
+```{r impute, cache = TRUE, results = "hide"}
 impute_activity <- mice(data = activity, me = 5, method = "pmm", maxit = 50, seed = 500)
 
 activity_imputed <- complete(impute_activity, 1)
@@ -85,7 +72,7 @@ activity_imputed <- complete(impute_activity, 1)
 ```{r plotDailyStepsAfterImpute}
 activity_imputed$date <- as.Date(activity_imputed$date)
 
-ggplot(activity_imputed, aes(x = date, y = steps)) + stat_summary(fun.y = sum, geom = "bar") +  xlab("Date") + ylab("Steps") + ggtitle("Total Steps per Day")
+ggplot(activity_imputed) + geom_histogram(aes(x = date, weight = steps), binwidth = 1) + xlab("Date") + ylab("Steps") + ggtitle("Total Steps per Day")
 ```
 
 ## Are there differences in activity patterns between weekdays and weekends?
